@@ -383,6 +383,18 @@ class DocumentGenerator(Generator):
             ],
             "restricted": False,
         }
+        obj["alternative_titles"] = [
+            {
+                "value": obj["title"],
+                "type": "SUBTITLE"
+            },
+            {
+                "value": obj["title"],
+                "type": "TRANSLATED_TITLE",
+                "language": "FR",
+                "source": "CERN"
+            }
+        ]
         obj.update(**kwargs)
         return obj
 
