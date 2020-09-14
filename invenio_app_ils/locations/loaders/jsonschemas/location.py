@@ -9,7 +9,33 @@
 
 from invenio_records_rest.schemas import RecordMetadataSchemaJSONV1
 from invenio_records_rest.schemas.fields import PersistentIdentifier
-from marshmallow import fields
+from marshmallow import EXCLUDE, Schema, fields
+
+
+class OpeningWeekdaySchema(Schema):
+    """Opening weekday."""
+
+    class Meta:
+        """Meta attributes for the schema."""
+
+        unknown = EXCLUDE
+
+    weekday = fields.Str(required=True)
+    is_open = fields.Str(required=True)
+
+
+class OpeningExceptionSchema(Schema):
+    """Opening exception."""
+
+    class Meta:
+        """Meta attributes for the schema."""
+
+        unknown = EXCLUDE
+
+    title = fields.Str()
+    is_open = fields.Bool(required=True)
+    start_date = fields.Date(required=True)
+    end_date = fields.Date(required=True)
 
 
 class LocationSchemaV1(RecordMetadataSchemaJSONV1):
@@ -21,3 +47,5 @@ class LocationSchemaV1(RecordMetadataSchemaJSONV1):
     email = fields.Email()
     phone = fields.Str()
     notes = fields.Str()
+    opening_weekdays = fields.List(fields.Nested(OpeningWeekdaySchema))
+    opening_exceptions = fields.List(fields.Nested(OpeningExceptionSchema))
