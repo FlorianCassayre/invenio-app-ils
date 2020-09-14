@@ -11,7 +11,7 @@ import json
 import os
 import random
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from random import randint
 
 import arrow
@@ -927,6 +927,28 @@ class LibraryGenerator(Generator):
                 "phone": "+41 (0) 22 76 776 76",
                 "notes": lorem.sentence(),
             }
+            weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+            closed = ["saturday", "sunday"]
+            opening_weekdays = []
+            for weekday in weekdays:
+                opening_weekdays.append({
+                    "weekday": weekday,
+                    "is_open": weekday not in closed
+                })
+            obj["opening_weekdays"] = opening_weekdays
+            last_date = date.today()
+            opening_exceptions = []
+            for i in range(randint(0, 3)):
+                start_date = last_date + timedelta(days=randint(1, 15))
+                end_date = start_date + timedelta(days=randint(1, 4))
+                last_date = end_date
+                opening_exceptions.append({
+                    "title": lorem.sentence(),
+                    "is_open": random.random() >= 0.7,
+                    "start_date": start_date.isoformat(),
+                    "end_date": end_date.isoformat()
+                })
+            obj["opening_exceptions"] = opening_exceptions
             objs.append(obj)
 
         self.holder.libraries["objs"] = objs
