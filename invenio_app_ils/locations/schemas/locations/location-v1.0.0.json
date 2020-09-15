@@ -56,31 +56,31 @@
       },
       "default": [
         {
-          "day": "monday",
+          "weekday": "monday",
           "is_open": true
         },
         {
-          "day": "tuesday",
+          "weekday": "tuesday",
           "is_open": true
         },
         {
-          "day": "wednesday",
+          "weekday": "wednesday",
           "is_open": true
         },
         {
-          "day": "thursday",
+          "weekday": "thursday",
           "is_open": true
         },
         {
-          "day": "friday",
+          "weekday": "friday",
           "is_open": true
         },
         {
-          "day": "saturday",
+          "weekday": "saturday",
           "is_open": false
         },
         {
-          "day": "sunday",
+          "weekday": "sunday",
           "is_open": false
         }
       ]

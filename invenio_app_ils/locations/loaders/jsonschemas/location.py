@@ -61,8 +61,33 @@ class LocationSchemaV1(RecordMetadataSchemaJSONV1):
     def postload_checks(self, data, **kwargs):
         """Sort exceptions and validate record."""
         record = self.context["record"]
+
+        # Bijection between weekdays and indices
+        weekday_names = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        weekday_indices = {}
+        for i, weekday_name in weekday_names:
+            weekday_indices[weekday_name] = i
+
+        weekdays = record["opening_weekdays"]
+        new_weekdays = [None for _ in weekday_names]
+
+        filled = 0
+        for weekday in weekdays:
+            name = weekday["weekday"]
+            if name not in weekday_indices:
+                raise ValidationError("Unrecognized weekday.",
+                                      field_names=["opening_weekdays"])
+            index = weekday_indices[name]
+            if not new_weekdays[index]:
+                raise ValidationError("Duplicate weekday.",
+                                      field_names=["opening_weekdays"])
+            new_weekdays[index] = weekday
+        if filled != len(new_weekdays):
+            raise ValidationError("Missing weekdays.",
+                                  field_names=["opening_weekdays"])
+
         exceptions = record["opening_exceptions"]
-        exceptions.sort(lambda exception: exception["start_date"])
+        exceptions.sort(lambda ex: ex["start_date"])
         previous = None
         for exception in exceptions:
             if previous:

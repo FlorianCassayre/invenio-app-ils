@@ -20,10 +20,8 @@ def _is_normally_open(location, date):
     according to the regular schedule.
     """
     opening = location["opening_weekdays"]
-    assert len(opening) == len(_weekdays)
     weekday_number = date.weekday()
     opening_weekday = opening[weekday_number]
-    assert opening_weekday["weekday"] == _weekdays[weekday_number]
     return opening_weekday["is_open"]
 
 
