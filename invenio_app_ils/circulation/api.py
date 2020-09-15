@@ -32,7 +32,7 @@ from invenio_app_ils.errors import (IlsException, InvalidParameterError,
                                     PatronHasLoanOnItemError,
                                     PatronHasRequestOnDocumentError)
 from invenio_app_ils.fetchers import pid_fetcher
-from invenio_app_ils.holidays.api import is_open_on
+from invenio_app_ils.holidays.api import next_open_after
 from invenio_app_ils.items.api import Item
 from invenio_app_ils.minters import pid_minter
 from invenio_app_ils.proxies import current_app_ils
@@ -205,16 +205,18 @@ def checkout_loan(
     loan = Loan.create(data=new_loan, id_=record_uuid)
 
     params = deepcopy(loan)
-    current_end_date = arrow.get(params["end_date"]).date()
-    new_end_date = is_open_on(params["pickup_location_pid"], current_end_date)
-    if not new_end_date:
-        new_end_date = current_end_date
-    params.update(item_pid=item_pid, end_date=new_end_date, **kwargs)
+    params.update(item_pid=item_pid, **kwargs)
 
     # trigger the transition to request
     loan = current_circulation.circulation.trigger(
         loan, **dict(params, trigger="checkout")
     )
+
+    current_end_date = arrow.get(loan["end_date"]).date()
+    new_end_date = next_open_after(loan["pickup_location_pid"], current_end_date)
+    if not new_end_date:
+        new_end_date = current_end_date
+    loan.update(end_date=new_end_date, **kwargs)
 
     return pid, loan
 
