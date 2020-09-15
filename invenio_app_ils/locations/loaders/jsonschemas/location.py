@@ -59,13 +59,14 @@ class LocationSchemaV1(RecordMetadataSchemaJSONV1):
 
     @post_load
     def postload_checks(self, data, **kwargs):
-        """Validate record."""
+        """Sort exceptions and validate record."""
         record = self.context["record"]
         exceptions = record["opening_exceptions"]
-        for i in range(len(exceptions)):
-            exception = exceptions[i]
-            if i > 0:
-                previous = exceptions[i - 1]
+        exceptions.sort(lambda exception: exception["start_date"])
+        previous = None
+        for exception in exceptions:
+            if previous:
                 if previous["end_date"] >= exception["start_date"]:
-                    raise ValidationError("Exceptions must be sorted and not overlap.",
+                    raise ValidationError("Exceptions must not overlap.",
                                           field_names=["opening_exceptions"])
+            previous = exception
