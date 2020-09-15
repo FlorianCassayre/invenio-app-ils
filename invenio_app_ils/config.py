@@ -177,6 +177,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "invenio_app_ils.circulation.mail.tasks.send_overdue_loans_mail_reminder",
         "schedule": timedelta(days=1),
     },
+    "extend_active_loans_holiday": {
+        "task": "invenio_app_ils.holidays.tasks.extend_active_loans_holiday",
+        "schedule": timedelta(days=1),
+    },
     "stats-process-events": {
         "task": "invenio_stats.tasks.process_events",
         "schedule": timedelta(minutes=30),

@@ -6,7 +6,6 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 
 """Holidays tests."""
-from datetime import date, datetime
 
 import arrow
 import pytest
@@ -22,7 +21,7 @@ _today = "2000-01-01"  # was on a saturday (and it was cloudy)
 def holidays_data(app, db, testdata):
     Location = current_app_ils.location_record_cls
     record = Location.get_record_by_pid(_test_location_pid)
-    print(record)
+
     weekdays = ["monday", "tuesday", "wednesday", "thursday",
                 "friday", "saturday", "sunday"]
     opening_weekdays = []

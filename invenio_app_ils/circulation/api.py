@@ -12,6 +12,7 @@ from copy import copy, deepcopy
 from datetime import date, timedelta
 from functools import partial
 
+import arrow
 from elasticsearch import VERSION as ES_VERSION
 from flask import current_app
 from flask_login import current_user
@@ -31,6 +32,7 @@ from invenio_app_ils.errors import (IlsException, InvalidParameterError,
                                     PatronHasLoanOnItemError,
                                     PatronHasRequestOnDocumentError)
 from invenio_app_ils.fetchers import pid_fetcher
+from invenio_app_ils.holidays.api import is_open_on
 from invenio_app_ils.items.api import Item
 from invenio_app_ils.minters import pid_minter
 from invenio_app_ils.proxies import current_app_ils
@@ -203,7 +205,11 @@ def checkout_loan(
     loan = Loan.create(data=new_loan, id_=record_uuid)
 
     params = deepcopy(loan)
-    params.update(item_pid=item_pid, **kwargs)
+    current_end_date = arrow.get(params["end_date"]).date()
+    new_end_date = is_open_on(params["pickup_location_pid"], current_end_date)
+    if not new_end_date:
+        new_end_date = current_end_date
+    params.update(item_pid=item_pid, end_date=new_end_date, **kwargs)
 
     # trigger the transition to request
     loan = current_circulation.circulation.trigger(
