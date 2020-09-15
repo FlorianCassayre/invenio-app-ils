@@ -15,10 +15,7 @@ _day_increment = timedelta(days=1)  # Atomic increment
 
 
 def _is_normally_open(location, date):
-    """
-    Checks if the location is normally opened on a given date,
-    according to the regular schedule.
-    """
+    """Checks if the location is normally opened on a given date wrt to the regular schedule."""
     opening = location["opening_weekdays"]
     weekday_number = date.weekday()
     opening_weekday = opening[weekday_number]
@@ -26,11 +23,7 @@ def _is_normally_open(location, date):
 
 
 def _is_exceptionally_open(location, date):
-    """
-    Checks if the location is exceptionally opened on a given date,
-    according to the exceptional schedule, or None is no exception
-    is defined.
-    """
+    """Checks if the location is exceptionally opened on a given date, or None if undefined."""
     for exception in location["opening_exceptions"]:
         if date <= exception["end_date"]:
             if exception["start_date"] <= date:

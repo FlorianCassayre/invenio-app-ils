@@ -9,7 +9,8 @@
 
 from invenio_records_rest.schemas import RecordMetadataSchemaJSONV1
 from invenio_records_rest.schemas.fields import PersistentIdentifier
-from marshmallow import EXCLUDE, Schema, fields, pre_load, ValidationError, post_load
+from marshmallow import (EXCLUDE, Schema, ValidationError, fields, post_load,
+                         pre_load)
 
 
 class OpeningWeekdaySchema(Schema):
