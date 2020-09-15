@@ -8,7 +8,8 @@
 """Location schema for marshmallow loader."""
 
 from invenio_records_rest.schemas import RecordMetadataSchemaJSONV1
-from invenio_records_rest.schemas.fields import PersistentIdentifier
+from invenio_records_rest.schemas.fields import (DateString,
+                                                 PersistentIdentifier)
 from marshmallow import (EXCLUDE, Schema, ValidationError, fields, post_load,
                          pre_load)
 
@@ -35,8 +36,8 @@ class OpeningExceptionSchema(Schema):
 
     title = fields.Str()
     is_open = fields.Bool(required=True)
-    start_date = fields.Date(required=True)
-    end_date = fields.Date(required=True)
+    start_date = DateString(required=True)
+    end_date = DateString(required=True)
 
     @pre_load
     def validate_dates(self, data, **kwargs):

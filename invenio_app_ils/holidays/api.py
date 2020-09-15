@@ -6,11 +6,13 @@
 # under the terms of the MIT License; see LICENSE file for more details.
 
 """ILS holidays API."""
+
 from datetime import timedelta
+
+import arrow
 
 from invenio_app_ils.proxies import current_app_ils
 
-_weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 _day_increment = timedelta(days=1)  # Atomic increment
 
 
@@ -25,8 +27,8 @@ def _is_normally_open(location, date):
 def _is_exceptionally_open(location, date):
     """Checks if the location is exceptionally opened on a given date, or None if undefined."""
     for exception in location["opening_exceptions"]:
-        if date <= exception["end_date"]:
-            if exception["start_date"] <= date:
+        if date <= arrow.get(exception["end_date"]).date():
+            if arrow.get(exception["start_date"]).date() <= date:
                 return exception["is_open"]
             else:
                 return None  # Early return
@@ -45,14 +47,15 @@ def is_open_on(location_pid, date):
 def next_open_after(location_pid, date):
     """Finds the next day where this location is open."""
     location = current_app_ils.location_record_cls.get_record_by_pid(location_pid)
+    n_weekdays = len(location["opening_weekdays"])
     weekdays_closed = False
     for exception in location["opening_exceptions"]:
-        end_date = exception["end_date"]
+        end_date = arrow.get(exception["end_date"]).date()
         if date <= end_date:  # Find the next exception the ends after our date
-            start_date = exception["start_date"]
+            start_date = arrow.get(exception["start_date"]).date()
             if date < start_date and not weekdays_closed:  # Iterate over the weekdays to reach the interval
                 i = 0
-                while i < len(_weekdays) and date < start_date:
+                while i < n_weekdays and date < start_date:
                     if _is_normally_open(location, date):
                         return date
                     else:
@@ -73,7 +76,7 @@ def next_open_after(location_pid, date):
     if weekdays_closed:  # All weekdays closed and no exceptional openings
         return None
     else:
-        for i in range(len(_weekdays)):
+        for i in range(n_weekdays):
             if _is_normally_open(location, date):
                 return date
             else:
