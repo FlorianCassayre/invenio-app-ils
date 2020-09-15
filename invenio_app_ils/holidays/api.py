@@ -13,6 +13,7 @@ from invenio_app_ils.proxies import current_app_ils
 _weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 _day_increment = timedelta(days=1)  # Atomic increment
 
+
 def _is_normally_open(location, date):
     """
     Checks if the location is normally opened on a given date,
@@ -50,18 +51,40 @@ def is_open_on(location_pid, date):
     return _is_normally_open(location, date)
 
 
-def _next_normally_open_after(location, date):
-    """Finds the next normally open day."""
-    for i in range(len(_weekdays)):  # Maximum number of iterations
-        if _is_normally_open(location, date):
-            return date
-        else:
-            date += _day_increment
-    return None  # Not normally open
-
-
 def next_open_after(location_pid, date):
     """Finds the next day where this location is open."""
     location = current_app_ils.location_record_cls.get_record_by_pid(location_pid)
+    weekdays_closed = False
+    for exception in location["opening_exceptions"]:
+        end_date = exception["end_date"]
+        if date <= end_date:  # Find the next exception the ends after our date
+            start_date = exception["start_date"]
+            if date < start_date and not weekdays_closed:  # Iterate over the weekdays to reach the interval
+                i = 0
+                while i < len(_weekdays) and date < start_date:
+                    if _is_normally_open(location, date):
+                        return date
+                    else:
+                        date += _day_increment
+                    i += 1
+                if date < start_date:
+                    weekdays_closed = True
+            if weekdays_closed:  # Jump to interval directly
+                date = start_date
 
-    0 / 0
+            assert start_date <= date  # In any case we reached the interval
+            if exception["is_open"]:  # Exceptional opening
+                return date
+            else:  # Exceptional closing
+                date = end_date + _day_increment
+        # Continue with next exception
+
+    if weekdays_closed:  # All weekdays closed and no exceptional openings
+        return None
+    else:
+        for i in range(len(_weekdays)):
+            if _is_normally_open(location, date):
+                return date
+            else:
+                date += _day_increment
+        return None  # Similar case
