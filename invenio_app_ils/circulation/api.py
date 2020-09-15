@@ -214,9 +214,11 @@ def checkout_loan(
 
     current_end_date = arrow.get(loan["end_date"]).date()
     new_end_date = next_open_after(loan["pickup_location_pid"], current_end_date)
-    if not new_end_date:
-        new_end_date = current_end_date
-    loan.update(end_date=new_end_date, **kwargs)
+    if new_end_date and new_end_date != current_end_date:
+        loan.update(end_date=new_end_date.isoformat())
+        loan.commit()
+        db.session.commit()
+        current_app_ils.location_indexer.index(loan)
 
     return pid, loan
 

@@ -31,8 +31,8 @@ def extend_active_loans_holiday():
 
         current_end_date = arrow.get(record["end_date"]).date()
         new_end_date = next_open_after(location_pid, current_end_date)
-        if new_end_date and new_end_date != new_end_date:  # Update loan
-            record.update({"end_date": new_end_date})
+        if new_end_date and new_end_date != current_end_date:  # Update loan
+            record.update(end_date=new_end_date.isoformat())
             record.commit()
             db.session.commit()
             current_app_ils.location_indexer.index(record)
