@@ -11,8 +11,10 @@ from invenio_records_rest.schemas import RecordMetadataSchemaJSONV1
 from invenio_records_rest.schemas.fields import (DateString,
                                                  PersistentIdentifier)
 from marshmallow import (EXCLUDE, Schema, ValidationError, fields, post_load,
-                         pre_load)
+                         pre_load, validates)
 
+_weekday_names = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+_weekday_indices = {weekday_name: i for i, weekday_name in enumerate(_weekday_names)}
 
 class OpeningWeekdaySchema(Schema):
     """Opening weekday."""
@@ -23,7 +25,13 @@ class OpeningWeekdaySchema(Schema):
         unknown = EXCLUDE
 
     weekday = fields.Str(required=True)
-    is_open = fields.Str(required=True)
+    is_open = fields.Bool(required=True)
+
+    @validates("weekday")
+    def validate_weekday_name(self, value, **kwargs):
+        """Validate weekday."""
+        if value not in _weekday_names:
+            raise ValidationError("Illegal weekday name.", field_names=["weekday"])
 
 
 class OpeningExceptionSchema(Schema):
@@ -45,6 +53,7 @@ class OpeningExceptionSchema(Schema):
         if data["end_date"] < data["start_date"]:
             raise ValidationError("End date cannot happen before start date.",
                                   field_names=["start_date", "end_date"])
+        return data
 
 
 class LocationSchemaV1(RecordMetadataSchemaJSONV1):
@@ -62,34 +71,20 @@ class LocationSchemaV1(RecordMetadataSchemaJSONV1):
     @post_load
     def postload_checks(self, data, **kwargs):
         """Sort exceptions and validate record."""
-        record = self.context["record"]
+        weekdays = data["opening_weekdays"]
+        new_weekdays = [None for _ in _weekday_names]
 
-        # Bijection between weekdays and indices
-        weekday_names = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-        weekday_indices = {}
-        for i, weekday_name in weekday_names:
-            weekday_indices[weekday_name] = i
-
-        weekdays = record["opening_weekdays"]
-        new_weekdays = [None for _ in weekday_names]
-
-        filled = 0
         for weekday in weekdays:
             name = weekday["weekday"]
-            if name not in weekday_indices:
-                raise ValidationError("Unrecognized weekday.",
-                                      field_names=["opening_weekdays"])
-            index = weekday_indices[name]
-            if not new_weekdays[index]:
-                raise ValidationError("Duplicate weekday.",
-                                      field_names=["opening_weekdays"])
+            index = _weekday_indices[name]
+            if new_weekdays[index]:
+                raise ValidationError("Duplicate weekday.", field_names=["opening_weekdays"])
             new_weekdays[index] = weekday
-        if filled != len(new_weekdays):
-            raise ValidationError("Missing weekdays.",
-                                  field_names=["opening_weekdays"])
+        if len(weekdays) != len(new_weekdays):
+            raise ValidationError("Missing weekdays.", field_names=["opening_weekdays"])
 
-        exceptions = record["opening_exceptions"]
-        exceptions.sort(lambda ex: ex["start_date"])
+        exceptions = data["opening_exceptions"]
+        exceptions.sort(key=lambda ex: ex["start_date"])
         previous = None
         for exception in exceptions:
             if previous:
@@ -97,3 +92,5 @@ class LocationSchemaV1(RecordMetadataSchemaJSONV1):
                     raise ValidationError("Exceptions must not overlap.",
                                           field_names=["opening_exceptions"])
             previous = exception
+
+        return data
