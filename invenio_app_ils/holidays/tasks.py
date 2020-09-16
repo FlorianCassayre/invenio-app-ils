@@ -7,15 +7,16 @@
 
 """Holidays tasks."""
 
+from datetime import date
+
 import arrow
 from celery import shared_task
 from invenio_db import db
 
 from invenio_app_ils.circulation.search import get_active_loans
 from invenio_app_ils.holidays.api import next_open_after
-from invenio_app_ils.proxies import current_app_ils
 from invenio_app_ils.locations.api import Location
-from datetime import date
+from invenio_app_ils.proxies import current_app_ils
 
 
 @shared_task
