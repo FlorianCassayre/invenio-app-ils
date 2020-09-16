@@ -14,6 +14,8 @@ from invenio_db import db
 from invenio_app_ils.circulation.search import get_active_loans
 from invenio_app_ils.holidays.api import next_open_after
 from invenio_app_ils.proxies import current_app_ils
+from invenio_app_ils.locations.api import Location
+from datetime import date
 
 
 @shared_task
@@ -36,6 +38,27 @@ def extend_active_loans_holiday():
             record.commit()
             db.session.commit()
             current_app_ils.location_indexer.index(record)
+
+
+@shared_task
+def clean_past_exceptions():
+    """Deletes all past exceptions."""
+    today = date.today()
+    search_cls = current_app_ils.location_search_cls()
+    for hit in search_cls.scan():
+        index = 0
+        location_pid = hit.pid
+        record = Location.get_record_by_pid(location_pid)
+
+        for item in record["opening_exceptions"]:
+            end_date = arrow.get(item["end_date"]).date()
+            if end_date < today:
+                del record["opening_exceptions"][index]
+            index = index + 1
+
+        record.commit()
+        db.session.commit()
+        current_app_ils.location_indexer.index(record)
 
 
 def _send_loan_update_email():

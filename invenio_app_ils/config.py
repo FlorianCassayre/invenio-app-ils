@@ -191,6 +191,10 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": timedelta(hours=3),
         "args": [("record-view-agg", "file-download-agg")],
     },
+    "clean_past_exceptions": {
+        "task": "invenio_app_ils.circulation.mail.tasks.clean_past_exceptions",
+        "schedule": timedelta(days=1),
+    },
 }
 
 ###############################################################################
