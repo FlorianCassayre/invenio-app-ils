@@ -12,8 +12,10 @@ import time
 import arrow
 from invenio_circulation.proxies import current_circulation
 
-from invenio_app_ils.closures.tasks import \
-    clean_locations_past_closures_exceptions
+from invenio_app_ils.circulation.search import get_active_loans
+from invenio_app_ils.closures.tasks import (
+    clean_locations_past_closures_exceptions,
+    extend_active_loans_location_closure)
 from invenio_app_ils.proxies import current_app_ils
 
 _test_location_pid = "locid-1"
@@ -166,3 +168,51 @@ def test_clean_locations_past_closures_exceptions(
 
     assert record["opening_exceptions"] == opening_exceptions_cleaned()
     assert record_2["opening_exceptions"] == opening_exceptions_cleaned()
+
+
+def test_no_changes_on_loans(db, users, testdata):
+    """Test that no changes are applied to the loans if not needed."""
+    prepare_data(db, _test_location_pid,
+                 opening_exceptions_without_changes)
+    loans = testdata["loans"]
+    clean_locations_past_closures_exceptions()
+    for hit in get_active_loans().scan():
+        for loan in loans:
+            if hit["pid"] == loan["pid"]:
+                assert \
+                    hit["end_date"] == loan["end_date"]
+
+
+def test_no_changes_on_exceptions(db, users, testdata):
+    """Test that no changes are applied to the exceptions if not needed."""
+    prepare_data(db, _test_location_pid,
+                 opening_exceptions_without_changes)
+    extend_active_loans_location_closure()
+    location = current_app_ils.location_record_cls
+    record = location.get_record_by_pid(_test_location_pid)
+    record_2 = location.get_record_by_pid(_test_location_pid_2)
+
+    assert record["opening_exceptions"] == opening_exceptions_without_changes
+    assert record_2["opening_exceptions"] == []
+
+
+def test_extend_active_loans_location_closure(
+    db, users, testdata, app_with_mail
+):
+    """Test extension of active loans that finish on holidays."""
+    prepare_data(db, _test_location_pid,
+                 opening_exceptions_with_past_exceptions)
+    prepare_loans_data(db, testdata)
+    time.sleep(3)
+
+    with app_with_mail.extensions["mail"].record_messages() as outbox:
+        assert len(outbox) == 0
+        extend_active_loans_location_closure()
+        assert len(outbox) == 2
+
+    loan = current_circulation.loan_record_cls.get_record_by_pid(
+        _test_loan_pid)
+    loan_2 = current_circulation.loan_record_cls.get_record_by_pid(
+        _test_loan_pid_2)
+    assert loan["end_date"] == "2100-03-07"
+    assert loan_2["end_date"] == "2100-02-13"
