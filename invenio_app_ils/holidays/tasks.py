@@ -33,6 +33,7 @@ def extend_active_loans_holiday():
             loan.update(request_expire_date=new_end_date.strftime("%Y-%m-%d"))
             loan.commit()
             current_circulation.loan_indexer().index(loan)
+            _send_loan_update_email(loan)
     db.session.commit()
 
 
@@ -58,6 +59,6 @@ def clean_past_exceptions():
     db.session.commit()
 
 
-def _send_loan_update_email():
+def _send_loan_update_email(loan):
     """Sends an email to the patron whose loan was updated."""
     pass
