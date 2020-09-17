@@ -18,13 +18,13 @@ from tests.helpers import user_login
 
 _test_location_pid = "locid-1"
 _today = "2000-01-01"  # was on a saturday (and it was cloudy)
+_weekdays = ["monday", "tuesday", "wednesday",
+             "thursday", "friday", "saturday", "sunday"]
 
 
 def _build_holidays_data(closed_weekdays, exceptions):
-    weekdays = ["monday", "tuesday", "wednesday", "thursday",
-                "friday", "saturday", "sunday"]
     opening_weekdays = []
-    for name in weekdays:
+    for name in _weekdays:
         obj = {
             "weekday": name,
             "is_open": name not in closed_weekdays
@@ -126,19 +126,57 @@ def test_next_open(app, db, testdata):
 
 
 def test_location_validation(client, json_headers, users, testdata):
-    def _test_update_holidays_data(closed_weekdays, exceptions, expected_code):
+    def _test_update_holidays(data, expected_code):
         url = url_for("invenio_records_rest.locid_item",
                       pid_value=_test_location_pid)
         res = client.get(url, headers=json_headers)
         assert res.status_code == 200
         metadata = res.get_json()["metadata"]
-        metadata.update(_build_holidays_data(closed_weekdays, exceptions))
+        metadata.update(data)
         res = client.put(url, headers=json_headers, data=json.dumps(metadata))
         assert res.status_code == expected_code
 
+    def _test_update_holidays_data(closed_weekdays, exceptions, expected_code):
+        _test_update_holidays(
+            _build_holidays_data(closed_weekdays, exceptions), expected_code
+        )
+
     user_login(client, "librarian", users)
 
-    # Ensure it can work
+    # Weekdays
+
+    _test_update_holidays({
+        "opening_weekdays":
+            [{"weekday": w, "is_open": True} for w in _weekdays],
+        "opening_exceptions": []
+    }, 200)
+
+    _test_update_holidays({
+        "opening_weekdays":
+            [{"weekday": w, "is_open": True} for w in _weekdays[::-1]],
+        "opening_exceptions": []
+    }, 200)
+
+    _test_update_holidays({
+        "opening_weekdays":
+            [{"weekday": w, "is_open": True} for w in _weekdays[:6]],
+        "opening_exceptions": []
+    }, 400)
+
+    _test_update_holidays({
+        "opening_weekdays":
+            [{"weekday": w, "is_open": True}
+             for w in _weekdays[:6] + ["monday"]],
+        "opening_exceptions": []
+    }, 400)
+
+    _test_update_holidays({
+        "opening_weekdays": [{"weekday": "foobar", "is_open": True}],
+        "opening_exceptions": []
+    }, 400)
+
+    # Exceptions
+
     _test_update_holidays_data(["saturday", "sunday"], [
         ["2000-01-01", "2000-01-05", False],
         ["2000-01-07", "2000-01-09", True],
@@ -164,4 +202,8 @@ def test_location_validation(client, json_headers, users, testdata):
     _test_update_holidays_data([], [
         ["2000-01-01", "2000-01-01", False],
         ["2000-01-01", "2000-01-01", False],
+    ], 400)
+
+    _test_update_holidays_data([], [
+        ["2000-01-02", "2000-01-01", True],
     ], 400)
