@@ -7,6 +7,8 @@
 
 """Location schema for marshmallow loader."""
 
+import time
+
 from invenio_records_rest.schemas import RecordMetadataSchemaJSONV1
 from invenio_records_rest.schemas.fields import (DateString,
                                                  PersistentIdentifier)
@@ -15,6 +17,34 @@ from marshmallow import (EXCLUDE, Schema, ValidationError, fields, post_load,
 
 _WEEKDAY_NAMES = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 _WEEKDAY_INDICES = {weekday_name: i for i, weekday_name in enumerate(_WEEKDAY_NAMES)}
+
+
+def validate_time(value):
+    try:
+        time.strptime(value, "%H:%M")
+    except ValueError:
+        raise ValidationError("Invalid time format.")
+    if len(value) != 5:
+        raise ValidationError("Invalid time format, numbers must be padded.")
+
+
+class OpeningHoursSchema(Schema):
+    """Opening hours."""
+
+    class Meta:
+        """Meta attributes for the schema."""
+
+        unknown = EXCLUDE
+
+    start_time = fields.Str(required=True, validate=validate_time)
+    end_time = fields.Str(required=True, validate=validate_time)
+
+    @pre_load
+    def validate_times(self, data, **kwargs):
+        if data["end_time"] < data["start_time"]:
+            raise ValidationError("End time cannot happen before start time.",
+                                  field_names=["start_time", "end_time"])
+        return data
 
 
 class OpeningWeekdaySchema(Schema):
@@ -27,12 +57,36 @@ class OpeningWeekdaySchema(Schema):
 
     weekday = fields.Str(required=True)
     is_open = fields.Bool(required=True)
+    times = fields.List(fields.Nested(OpeningHoursSchema))
 
     @validates("weekday")
     def validate_weekday_name(self, value, **kwargs):
         """Validate weekday."""
         if value not in _WEEKDAY_NAMES:
             raise ValidationError("Illegal weekday name.", field_names=["weekday"])
+
+    @post_load
+    def validate_times(self, data, **kwargs):
+        if data["is_open"]:
+            if "times" not in data:
+                raise ValidationError("Time periods must be defined on an opened weekday.",
+                                      field_names=["times"])
+            if len(data["times"]) != 2:
+                raise ValidationError("There must be exactly two time periods.",
+                                      field_names=["times"])
+            times = data["times"]
+            times.sort(key=lambda period: period["start_time"])
+            previous = None
+            for current in times:
+                if previous and previous["end_time"] >= current["start_time"]:
+                    raise ValidationError("Time periods must not overlap.",
+                                          field_names=["times"])
+                previous = current
+        else:
+            if "times" in data:
+                raise ValidationError("Time periods cannot be defined on a closed weekday.",
+                                      field_names=["times"])
+        return data
 
 
 class OpeningExceptionSchema(Schema):

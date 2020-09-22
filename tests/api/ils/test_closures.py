@@ -19,14 +19,18 @@ from tests.helpers import user_login
 _test_location_pid = "locid-1"
 _weekdays = ["monday", "tuesday", "wednesday",
              "thursday", "friday", "saturday", "sunday"]
+_opening_hours = [{"start_time": "08:00", "end_time": "12:00"},
+                  {"start_time": "13:00", "end_time": "18:00"}]
 
 
 def _build_location_closures_data(closed_weekdays, exceptions):
     opening_weekdays = []
     for name in _weekdays:
+        is_open = name not in closed_weekdays
         obj = {
             "weekday": name,
-            "is_open": name not in closed_weekdays
+            "is_open": is_open,
+            **({"times": _opening_hours} if is_open else {})
         }
         opening_weekdays.append(obj)
 
@@ -60,7 +64,23 @@ def test_location_validation(client, json_headers, users, testdata):
         res = client.put(url, headers=json_headers, data=json.dumps(metadata))
         assert res.status_code == expected_code
 
-    def _test_update_location_closures_data(
+    def _test_update_weekdays(weekdays, expected_code):
+        data = [{"weekday": name, "is_open": is_open,
+                 **({"times": _opening_hours} if is_open else {})}
+                for name, is_open in weekdays]
+        _test_update_location_closures(
+            {"opening_weekdays": data, "opening_exceptions": []}, expected_code)
+
+    def _test_update_times(times, expected_code):
+        ref = "monday"
+        times_data = [{"start_time": start, "end_time": end} for start, end in times]
+        data = [{"weekday": w, "is_open": w == ref,
+                 **({"times": times_data} if w == ref else {})}
+                for w in _weekdays]
+        _test_update_location_closures(
+            {"opening_weekdays": data, "opening_exceptions": []}, expected_code)
+
+    def _test_update_exceptions(
         closed_weekdays, exceptions, expected_code
     ):
         _test_update_location_closures(
@@ -72,72 +92,68 @@ def test_location_validation(client, json_headers, users, testdata):
 
     # Weekdays
 
-    _test_update_location_closures({
-        "opening_weekdays":
-            [{"weekday": w, "is_open": True} for w in _weekdays],
-        "opening_exceptions": []
-    }, 200)
+    _test_update_weekdays([[w, True] for w in _weekdays], 200)
 
-    _test_update_location_closures({
-        "opening_weekdays":
-            [{"weekday": w, "is_open": True} for w in _weekdays[::-1]],
-        "opening_exceptions": []
-    }, 200)
+    _test_update_weekdays([[w, True] for w in _weekdays[::-1]], 200)
 
-    _test_update_location_closures({
-        "opening_weekdays":
-            [{"weekday": w, "is_open": False} for w in _weekdays],
-        "opening_exceptions": []
-    }, 400)
+    _test_update_weekdays([[w, False] for w in _weekdays], 400)
 
-    _test_update_location_closures({
-        "opening_weekdays":
-            [{"weekday": w, "is_open": True} for w in _weekdays[:6]],
-        "opening_exceptions": []
-    }, 400)
+    _test_update_weekdays([[w, True] for w in _weekdays[:6]], 400)
 
-    _test_update_location_closures({
-        "opening_weekdays":
-            [{"weekday": w, "is_open": True}
-             for w in _weekdays[:6] + ["monday"]],
-        "opening_exceptions": []
-    }, 400)
+    _test_update_weekdays([[w, True] for w in _weekdays[:6] + ["monday"]], 400)
 
-    _test_update_location_closures({
-        "opening_weekdays": [{"weekday": "foobar", "is_open": True}],
-        "opening_exceptions": []
-    }, 400)
+    _test_update_weekdays([["foobar", True]], 400)
+
+    # Hours
+
+    _test_update_times([["08:00", "12:00"], ["13:00", "18:00"]], 200)
+
+    _test_update_times([["13:00", "18:00"], ["08:00", "12:00"]], 200)
+
+    _test_update_times([["08:00", "12:00"]], 400)
+
+    _test_update_times([["08:00", "10:00"], ["11:00", "12:00"], ["13:00", "18:00"]], 400)
+
+    _test_update_times([["8:00", "12:00"], ["13:00", "18:00"]], 400)
+
+    _test_update_times([["08:00", "12:0"], ["13:00", "18:00"]], 400)
+
+    _test_update_times([["08:00", ""], ["13:00", "18:00"]], 400)
+
+    _test_update_times([["08:00", "12:00"], ["12:00", "18:00"]], 400)
+
+    _test_update_times([["08:00", "12:00"], ["09:00", "11:00"]], 400)
 
     # Exceptions
 
-    _test_update_location_closures_data(["saturday", "sunday"], [
+    _test_update_exceptions(["saturday", "sunday"], [
         ["2000-01-01", "2000-01-05", False],
         ["2000-01-07", "2000-01-09", True],
         ["2000-01-10", "2000-01-15", True],
     ], 200)
 
-    _test_update_location_closures_data(["saturday", "sunday"], [
+    _test_update_exceptions(["saturday", "sunday"], [
         ["2000-01-12", "2000-01-17", True],
         ["2000-01-07", "2000-01-11", False],
         ["2000-01-02", "2000-01-04", True],
     ], 200)
 
-    _test_update_location_closures_data([], [
+    _test_update_exceptions([], [
         ["2000-01-01", "2000-01-05", False],
         ["2000-01-04", "2000-01-08", False],
     ], 400)
 
-    _test_update_location_closures_data([], [
+    _test_update_exceptions([], [
         ["2000-01-01", "2000-01-05", False],
         ["2000-01-04", "2000-01-08", True],
     ], 400)
 
-    _test_update_location_closures_data([], [
+    _test_update_exceptions([], [
         ["2000-01-01", "2000-01-01", False],
         ["2000-01-01", "2000-01-01", False],
     ], 400)
 
-    _test_update_location_closures_data([], [
+    _test_update_exceptions([], [
         ["2000-01-02", "2000-01-01", True],
     ], 400)
 
